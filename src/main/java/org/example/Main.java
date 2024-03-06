@@ -1,6 +1,5 @@
 package org.example;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -22,12 +21,7 @@ import java.util.*;
 
 public class Main {
     public static String CONFIGFILENAME = "config.dat";
-
     public static void main(String[] args) throws IOException {
-
-        //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
-        // to see how IntelliJ IDEA suggests fixing it.
-        System.out.print("Hello and welcome!\n");
 
         Config config = setup();
         File answerJsonFile = new File(config.getAnswerName());
@@ -42,32 +36,33 @@ public class Main {
             listOfWeeks.add(new Week(calcdate));
             calcdate = calcdate.plusWeeks(1);
         }
-        Map<String, String> valueMap;
 
+        Map<String, String> valueMap;
 
         List<String> randomValueMap = fillListWithStringsOrCreateNewAndFillWithExample(config);
 
+        Collections.shuffle(randomValueMap);
+
         Map<String, String> varMap = fillMapWithStringsOrCreateNewAndFillWithExample(new File(config.getVarFileName()), config);
-        //final Map<String,String> finMap = valueMap;
-        //final Map<String, String> variableMap = varMap;
 
         try {
 
             for (Week week : listOfWeeks) {
                 PdfReader reader = new PdfReader(config.getFileName());
                 valueMap = fillMapWithAnswerFileOrCreateNew(answerJsonFile, reader, config);
-                //PdfReader newReader = new PdfReader(config.getFileName());
                 PdfStamper stamper = new PdfStamper(reader,
                         new FileOutputStream(week.getStartDate().toString()
                                 + "-" + week.getEndDate() + ".pdf"));
                 var acroFields = stamper.getAcroFields();
+
+                var randomCount = new Random().nextInt(3,6);
                 Map<String, String> replacedMap = new HashMap<>();
                 valueMap.entrySet().stream().forEach(entry -> {
                             var value = entry.getValue().replace("%startDate", week.getStartDate().toString());
                             value = value.replace("%endDate", week.getEndDate().toString());
                             value = value.replace("%fridayDate", week.getFriday().toString());
                             if (value.contains("%randomValue"))
-                                value = value.replace("%randomValue", fillWithRandomValues(5, randomValueMap));
+                                value = value.replace("%randomValue", fillWithRandomValues(randomCount, randomValueMap));
                             for (Map.Entry<String, String> varEntry : varMap.entrySet()) {
                                 value = value.replace(varEntry.getKey(), varEntry.getValue());
                             }
@@ -92,11 +87,6 @@ public class Main {
         } catch (DocumentException e) {
             System.out.println("Error documentex");
         }
-
-    }
-
-    private static String stringReplacer(String mapValue, String variable, String variableValue) {
-        return mapValue.replace(variable, variableValue);
     }
 
     private static Map<String, String> fillMapWithAnswerFileOrCreateNew(File answerJsonFile, PdfReader reader, Config config) throws IOException {
@@ -112,21 +102,19 @@ public class Main {
     private static String fillWithRandomValues(int valueCount, List<String> randomValueList) {
         String returnedString = "";
         if (valueCount < 0 || randomValueList.isEmpty()) return returnedString;
-
         for (int i = 0; i < valueCount; i++) {
             if (i == 0) {
-                String popString = randomValueList.stream().findFirst().orElseThrow();
+                String popString = randomValueList.stream().findAny().orElseThrow();
                 returnedString = returnedString + popString;
                 randomValueList.remove(popString);
             } else {
                 if (CollectionUtils.isNotEmpty(randomValueList)) {
-                    String popString = randomValueList.stream().findFirst().orElseThrow();
+                    String popString = randomValueList.stream().findAny().orElseThrow();
                     randomValueList.remove(popString);
                     returnedString = returnedString + ", " + popString;
                 } else break;
             }
         }
-
         return returnedString;
     }
 
@@ -152,7 +140,7 @@ public class Main {
         }
     }
 
-    private static Config setup() throws JsonProcessingException, IOException {
+    private static Config setup() throws IOException {
         var config = new Config();
         try {
             return readConfig(new File(CONFIGFILENAME));
@@ -163,7 +151,7 @@ public class Main {
         }
     }
 
-    public static Map<String, String> read(File file) throws JsonProcessingException, IOException {
+    public static Map<String, String> read(File file) throws IOException {
         Map<String, String> response;
         TypeReference<HashMap<String, String>> typeReference = new TypeReference<>() {
         };
@@ -177,7 +165,7 @@ public class Main {
         return new ObjectMapper().readValue(file, typeReference);
     }
 
-    public static Config readConfig(File file) throws JsonProcessingException, IOException {
+    public static Config readConfig(File file) throws IOException {
         TypeReference<Config> typeReference = new TypeReference<>() {
         };
         var mapper = new ObjectMapper();
@@ -186,7 +174,7 @@ public class Main {
         return response;
     }
 
-    public static void export(AcroFields acroFields, Config config) throws JsonProcessingException, FileNotFoundException, IOException {
+    public static void export(AcroFields acroFields, Config config) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         var fieldmap = acroFields.getFields();
         Map<String, String> entryMap = new HashMap<>();
@@ -208,7 +196,7 @@ public class Main {
         }
     }
 
-    public static void export(Config config) throws JsonProcessingException, FileNotFoundException, IOException {
+    public static void export(Config config) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         String jacksonData = objectMapper.writeValueAsString(config);
@@ -219,7 +207,7 @@ public class Main {
         foStream.close();
     }
 
-    public static void export(File file) throws JsonProcessingException, FileNotFoundException, IOException {
+    public static void export(File file) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         String jacksonData = objectMapper.writeValueAsString(Map.of("%exampleValueToReplace", "this is the replacement text"));
@@ -230,7 +218,7 @@ public class Main {
         foStream.close();
     }
 
-    public static void exportList(File file) throws JsonProcessingException, FileNotFoundException, IOException {
+    public static void exportList(File file) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         String jacksonData = objectMapper.writeValueAsString(List.of("Random Value 2", "Random Example Value 2"));
